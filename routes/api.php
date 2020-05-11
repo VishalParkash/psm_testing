@@ -1,0 +1,100 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| is assigned the "api" middleware group. Enjoy building your API!
+|
+*/
+
+// Route::middleware('auth:api')->get('/user', function (Request $request) {
+//     return $request->user();
+// });
+
+Route::prefix('/admin')->name('admin.')->group(function(){
+	Route::post('register', 'Admin\AdminController@register');
+	Route::post('login', 'Admin\AdminController@login')->name('login');
+	// Route::post('/user' , 'Admin\UserController@store');
+	Route::post('assistance', 'Admin\UserController@assistance');
+	
+
+	Route::group([
+      'middleware' => 'auth:api'
+    ], function() {
+        // Route::get('logout', 'UserController@logout');
+        // Route::get('user', 'UserController@user');
+        // Route::post('password/change', 'PasswordController@change');
+
+    	
+    	//Profile Resources and Portfolios
+        Route::post('profile/add' , 'Admin\UserController@store')->name('add');
+        // Route::post('profile/update' , 'Admin\UserController@update')->name('update');
+        Route::post('/upload' , 'Admin\UserController@upload');
+        // Route::post('portfolio/pdf' , 'Admin\UserController@upload');
+        
+		Route::get('profile/{id}' , 'Admin\UserController@show');
+		Route::get('profiles/' , 'Admin\UserController@list');
+		Route::post('profile/{id}' , 'Admin\UserController@update');
+		Route::post('profile/status/{id}' , 'Admin\UserController@updateProfileStatus');
+		Route::post('portfolio/add/{profile_id}' , 'Admin\UserController@portfolio');
+		Route::post('portfolio/update/{portfolio_id}' , 'Admin\UserController@updatePortfolio');
+		Route::post('portfolio/status/{id}' , 'Admin\UserController@updatePortfolioStatus');
+		Route::post('portfolio/notes/{portfolio_id}' , 'Admin\UserController@addNotes');
+		Route::get('skills', 'Admin\UserController@skills');
+		Route::post('skill/profiles', 'Admin\UserController@skilledProfiles');
+		Route::post('validate/url', 'Admin\UserController@checkUrlValidity');
+
+		//Shares
+		Route::post('share/add' , 'Admin\ShareController@create');
+		Route::post('share/{id}' , 'Admin\ShareController@update');
+		Route::post('validity/{id}' , 'Admin\ShareController@extendValidity');
+		Route::post('refresh/{share_id}' , 'Admin\ShareController@refreshShareUrl');
+		Route::get('share/archive/{id}' , 'Admin\ShareController@archiveShareRecord');
+		Route::get('share/delete/{id}' , 'Admin\ShareController@deletePermanentlyShareRecord');
+		Route::get('share/list/' , 'Admin\ShareController@list');
+		Route::post('share/notes/{share_id}' , 'Admin\ShareController@addNotes');
+		Route::get('clientshare/{share_id}/' , 'Admin\ShareController@ClientShare');
+		Route::get('profiles/{portfolio_id}/' , 'Admin\ShareController@portfolioShares');
+		Route::post('share/status/{id}' , 'Admin\ShareController@updateShareStatus');
+		
+
+
+		//Client
+		Route::post('client/add' , 'Admin\ClientController@create');
+		Route::get('client/{client_id}' , 'Admin\ClientController@getClient');
+		Route::post('client/update/{client_id}' , 'Admin\ClientController@update');
+		
+		
+
+
+		//Dashboard
+		Route::get('dashboard' , 'Admin\DashboardController@index');
+
+		//History
+		Route::get('history/{HistoryType}/{TypeId}' , 'Admin\HistoryController@index');
+    });
+});
+
+
+Route::group(['middleware' => ['web']], function () {
+    // your routes here
+	Route::get('social/{SocialProvider}', 'Client\UserController@redirectToProvider');
+	Route::get('social/{SocialProvider}/callback', 'Client\UserController@handleProviderCallback');
+});
+
+Route::post('client/login/{qryString}' , 'Client\ClientController@login');
+	Route::group([
+      'middleware' => 'auth:api'
+    ], function() {
+    	Route::get('/client/dashboard/{share_id}', 'Client\ProfileController@profiles');
+    	Route::get('/portfolio/views/{portfolio_id}/{share_id}', 'Client\ProfileController@countPortfolioViews');
+    	Route::post('client/profiles' , 'Client\ProfileController@profiles');
+    });
+	// Route::post('/client/share', 'Client\ClientController@create');

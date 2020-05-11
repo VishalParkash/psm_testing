@@ -1,0 +1,1 @@
+<?php echo e($mail); ?><?php /**PATH /var/www/html/mp_share/resources/views/emails/assistance.blade.php ENDPATH**/ ?>
