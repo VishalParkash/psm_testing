@@ -67,10 +67,25 @@ class ClientController extends Controller
         //         'error' => $validator->errors()
         //     ]);      
         // }
-
+        if(empty($userRequest->share_id)){
+            $response['status'] = false;
+            $response['message'] = "Invalid or No Share";
+            return $response;
+        }
         $ValidateShare = Share::find($userRequest->share_id);
         if(!empty($ValidateShare)){
         	$UrlToShare = $ValidateShare->share_url;
+
+            $findClient = Client::select('clientEmail')
+                            ->where('clientEmail',$userRequest->clientEmail)
+                            ->where('share_id',$userRequest->share_id)
+                            ->first();
+                            if(!empty($findClient)){
+                                $response['status'] = false;
+                                $response['message'] = "Client with same email has already been associated with this share. Please use another email";
+                                return $response;
+                            }
+
         	$CreateClient = new Client([
             'share_id' => $userRequest->share_id,
             'clientName' => $userRequest->clientName,

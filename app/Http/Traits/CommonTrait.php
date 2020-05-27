@@ -153,10 +153,13 @@ trait CommonTrait	{
 	
     function getPortFolio($portfolio_id){
         if(!empty(($portfolio_id))){
-            $Portfolio = Portfolio::find($portfolio_id)->toArray();
+            $Portfolio = Portfolio::find($portfolio_id);
             if(!empty($Portfolio)){
+                $Portfolio = $Portfolio->toArray();
                 return $Portfolio;
             }
+        }else{
+            return false;
         }
     }
 
@@ -173,8 +176,19 @@ trait CommonTrait	{
         return $Profile;
     }
 
+    function getProfileIdByPortfolio($portfolio_id){
+        $Profile = Portfolio::select('profile_id')->find($portfolio_id);
+        if(!empty($Profile)){
+            $Profile = $Profile->toArray();
+        }
+        return $Profile['profile_id'];
+    }
+
     function getResourceName($profile_id){
-        $Profile = Profile::select('resource_name')->find($profile_id)->toArray();
+        $Profile = Profile::select('resource_name')->find($profile_id);
+        if(!empty($Profile)){
+            $Profile = $Profile->toArray();
+        }
         return $Profile;
     }
 
@@ -264,6 +278,8 @@ trait CommonTrait	{
                 }else{
                     $response['status'] = false;
                 }
+            }else{
+                $response['status'] = false;
             }
         }else{
             $response['status'] = false;

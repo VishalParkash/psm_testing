@@ -8,6 +8,7 @@ use App\Share;
 use App\Client;
 use App\Profile;
 use App\Portfolio;
+use App\SharePortfolio;
 use App\User;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Traits\CommonTrait;
@@ -113,28 +114,36 @@ use CommonTrait;
             $clientName = $this->getClientName($ClientId);
 
             $Portfolio = Portfolio::find($portfolio_id);
+            $SharePortfolio = SharePortfolio::where('portfolio_id', $portfolio_id)
+                                            ->where('share_id', $share_id)
+                                            ->first();
+
             if(!empty($Portfolio)){
-                // $Portfolio->increment('views');
-                $getResourceName = $this->getResourceName($Portfolio->profile_id)['resource_name'];
-                $Portfolio->views++;
-                $Portfolio->lastViewedOn = Carbon::now();
-                // if($Portfolio->increment('views')) {
-                if($Portfolio->save()) {
-                    $HistoryData['share_id'] = $share_id;
-                    $HistoryData['client_id'] = $ClientId;
-                    $HistoryData['description'] = $clientName." viewed profile of ".$getResourceName;
-                    $HistoryData['activityType'] = "profiles_viewed";
-                    $HistoryData['loginType'] = "clientLogin";
-                    $HistoryData['createdBy'] = $ClientId;
-                    $HistoryData['updatedBy'] = $ClientId;
-                    $this->addHistory($HistoryData);
-                    $response['status'] = true;
-                }else{
-                    $response['status'] = false;
-                }
+                    $getResourceName = $this->getResourceName($Portfolio->profile_id)['resource_name'];
+
+                    $Portfolio->views++;
+                    $Portfolio->lastViewedOn = Carbon::now();
+                    $SharePortfolio->lastViewedOn = Carbon::now();
+                    $SharePortfolio->save();
+                    // if($Portfolio->increment('views')) {
+                    if($Portfolio->save()) {
+                        
+                        $HistoryData['share_id'] = $share_id;
+                        $HistoryData['client_id'] = $ClientId;
+                        $HistoryData['description'] = $clientName." viewed profile of ".$getResourceName;
+                        $HistoryData['activityType'] = "profiles_viewed";
+                        $HistoryData['loginType'] = "clientLogin";
+                        $HistoryData['createdBy'] = $ClientId;
+                        $HistoryData['updatedBy'] = $ClientId;
+                        $this->addHistory($HistoryData);
+                        $response['status'] = true;
+                    }else{
+                        $response['status'] = false;
+                    }
+                             
             }else{
                 $response['status'] = false;
-                $response['message'] = "Invalid share id";
+                $response['message'] = "Invalid profile.";
             }
         }else{
             $response['status'] = false;
@@ -144,7 +153,9 @@ use CommonTrait;
 
     public function profiles($queryString){
 
-        $getShare = Share::where('queryString','=', $queryString)->first();
+        $getShare = Share::where('queryString','=', $queryString)
+                            ->where('status', 1)
+                            ->first();
         if(!empty($getShare)){
             $getClient = Client::where('share_id', '=', $getShare->id)
                             ->where('clientEmail', '=', $this->email)
@@ -167,10 +178,18 @@ use CommonTrait;
                                 $Portfolio['id']= $getPortfolio->id;
                                 $Portfolio['pdfUrl']= $this->getImageFromS3($getPortfolio->id, $Portfolio);
                             }
-                            $ProfileArr[] = $Portfolio;
+                            if(!empty($Portfolio)){
+                                $ProfileArr[] = $Portfolio;
+                            }
+                            
                         }
                     }
-                    $getClient['profiles'] = $ProfileArr;
+                    if(!empty($ProfileArr)){
+                        $getClient['profiles'] = $ProfileArr;
+                    }else{
+                        $getClient['profiles'] = array();
+                    }
+                    
                     $response['status'] = true;
                     $response['result'] = $getClient;
                     $response['message'] = "valid result";
@@ -180,10 +199,75 @@ use CommonTrait;
                 }
             }else{
                 $response['status'] = false;
-                $response['message'] = "Not a valid share";
+                $response['message'] = 'It seems to be an invalid share. Please try again';
             }
         
                 return $response;
+    }
+
+    public function getChange($UpdatedAt,$queryString){
+        $Portfolio = array();
+
+        $getShare = Share::where('queryString','=', $queryString)->first();
+        if(!empty($getShare)){
+
+            if($getShare->updated_at == $UpdatedAt){
+                    $response['status'] = false;
+                    $response['message'] = "No change";
+                }elseif($UpdatedAt > $getShare->updated_at){
+                    $response['status'] = false;
+                    $response['message'] = "Invalid date";;
+                }else{
+                    $getClient = Client::where('share_id', '=', $getShare->id)
+                            ->where('clientEmail', '=', $this->email)
+                            ->first();
+
+                    if(!empty($getClient)){
+                           
+                        $getClient = $getClient->toArray();
+                        $getShare = Share::find($getClient['share_id'])->toArray();
+                        $getClient['share_title'] = $this->getShareTitle($getClient['share_id']);
+                        $getPortfolios = $getShare['profileShared'];
+                        $Portfolio_ids = explode(',', $getPortfolios);
+                        if(!empty($Portfolio_ids)){
+                            foreach($Portfolio_ids as $Portfolio_id){
+                                $getPortfolio = Portfolio::find($Portfolio_id);
+                                if(!empty($getPortfolio)){
+                                    $Portfolio['resource_name']= $this->getResourceName($getPortfolio->profile_id)['resource_name'];
+                                    $Portfolio['profile_url']= $getPortfolio->portfolio_url;
+                                    $Portfolio['profile_title']= $getPortfolio->profile_title;
+                                    $Portfolio['id']= $getPortfolio->id;
+                                    $Portfolio['pdfUrl']= $this->getImageFromS3($getPortfolio->id, $Portfolio);
+                                }
+                                $ProfileArr[] = $Portfolio;
+                            }
+                        }
+                        $getClient['profiles'] = $ProfileArr;
+                        $response['status'] = true;
+                        $response['result'] = $getClient;
+                        $response['message'] = "valid result";
+                    }
+                }
+
+
+            
+        }else{
+            $response['status'] = false;
+        }
+        return $response;                          
+        // if(!empty($share_id)){
+        //     $Share = Share::find($share_id);
+        //     // if(!empty($Share)){
+        //     //     if($Share->updated_at == $UpdatedAt){
+        //     //         return false;
+        //     //     }else{
+
+        //     //     }
+        //     // }
+        // }else{
+        //     $response['status'] = false;
+        //     $response['message'] = "Invalid Share";
+        // }
     }
 
     /**

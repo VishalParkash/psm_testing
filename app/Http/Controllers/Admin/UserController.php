@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\User;
 use App\Profile;
 use App\Portfolio;
+use App\SharePortfolio;
 use App\Assistance;
 use Validator;
 use Illuminate\Support\Facades\Storage;
@@ -53,36 +54,6 @@ class UserController extends Controller {
 }
 
 
-    public function __construct111(Request $request){
-
-        $bearerToken=$request->bearerToken();
-$tokenId= (new Parser())->parse($bearerToken)->getHeader('jti');
-$client = Token::find($tokenId)->client;
-
-
-        $loggedInUser = $request->user();
-        echo "<pre>";print_r($client);
-        die;
-        if(empty($loggedInUser)){
-            $response['status'] = false;
-            $response['message'] = 'Unauthenticated.';
-        }
-        $loggedInUserId = $loggedInUser['id'];
-
-        $User = User::find($loggedInUserId);
-        if(!empty($User)){
-            if($User->user_role != 'admin' ){
-                $response['status'] = false;
-                $response['message'] = 'Unauthenticated.';
-            }
-        }else{
-            $response['status'] = false;
-            $response['message'] = 'Unauthenticated.';
-        }
-        return $response;
-        
-    }
-
     public function list()
     {
         //
@@ -92,18 +63,21 @@ $client = Token::find($tokenId)->client;
         if($Profiles){
 
             foreach($Profiles as $profile){
-
-                // echo "<pre>";print_r($profile->id);
-                // echo "<br>next";
-                $portfolioList = Portfolio::where('profile_id', '=', $profile['id'])->get()->toArray();
-                // echo "<pre>";print_r($portfolioList);
-                $portfolioArr = array();
-                foreach($portfolioList as $portfolio){
-                    $diff = Carbon::parse($portfolio['lastViewedOn'])->diffForHumans();
-                    $portfolio['lastViewedOn'] = $diff;
-                    $portfolioArr[] = $portfolio;
-                    // $portfolio['']
+                $portfolioList = Portfolio::where('profile_id', '=', $profile['id'])->get();
+                if(!empty($portfolioList)){
+                    $portfolioList = $portfolioList->toArray();
                 }
+                // echo "<pre>";print_r($portfolioList);
+                if(!empty($portfolioList)){
+                    $portfolioArr = array();
+                    foreach($portfolioList as $portfolio){
+                        $diff = Carbon::parse($portfolio['lastViewedOn'])->diffForHumans();
+                        $portfolio['lastViewedOn'] = $diff;
+                        $portfolioArr[] = $portfolio;
+                        // $portfolio['']
+                    }
+                }
+                
                 $profile['portfolio'] = $portfolioArr;
                 $profile['image'] = $this->getImageFromS3($profile['id'], "Profile");
                 $profileArr[] = $profile;
@@ -337,7 +311,6 @@ $client = Token::find($tokenId)->client;
                 $Portfolio->portfolio_url = $userRequest->portfolio_url;
                 $Portfolio->portfolio_pdf_url = $userRequest->portfolio_pdf_url;
                 $Portfolio->profile_notes = $userRequest->profile_notes;
-                $Portfolio->status = $userRequest->status;
                 $Portfolio->updatedBy = $updatedBy;
 
                 if($Portfolio->save()){
@@ -644,6 +617,129 @@ $client = Token::find($tokenId)->client;
                         $response['status'] = true;
                         $response['message'] = 'Successfully updated resource!';
                         // $response['user'] = $User;
+                        $response['userProfile'] = $Profile;
+                    }else{    
+                        $response['status'] = false;
+                        $response['message'] = 'error occured';
+                    }
+            }else{
+                $response['status'] = false;
+                $response['message'] = 'No such profile';
+            }
+        
+
+        
+
+        return $response;
+
+    }
+
+    public function updateProfile(Request $request, $id)
+    {
+        //
+
+        $requestData = trim(file_get_contents("php://input"));
+        $userRequestValidate = (json_decode($requestData, TRUE));
+        $userRequest = (json_decode($requestData));
+
+        $loggedInUser = $request->user()->toArray();
+        $updatedBy = $loggedInUser['id'];
+
+        // $User = User::find($id);
+        // if(empty($User)){
+        //     $response['status'] = false;
+        //     $response['message'] = 'No user exist';
+        //     return $response;
+        // }
+
+        // $validator = Validator::make($userRequestValidate, [
+        //     'email' => 'required|string|email|unique:users,email,'.$User->id.',id',
+        //     // 'password' => 'required',
+        //     // 'user_role'  => 'required',
+        //     // 'mobile_number' => 'unique:users,mobile_number,NULL',
+        //     // 'title'  => 'required',
+        //     // 'portFolio_Url'  => 'required',
+        // ]);
+
+        // if($validator->fails()){
+        //     return response()->json([
+        //         'status' => false,
+        //         'message' => 'Validation Error',
+        //         'error' => $validator->errors()
+        //     ]);      
+        // }
+
+                $Profile = Profile::find($id);
+                if(!empty($Profile)){
+
+                    $user_id = $Profile->user_id;
+                    if(empty($user_id)){
+                        $response['status'] = false;
+                        $response['message'] = 'Error. Please contact your administrator.';
+                        return $response;
+                    }
+
+                    $User = User::find($user_id);
+                            if(empty($User)){
+                        $response['status'] = false;
+                        $response['message'] = 'Sorry. We could not find the user.';
+                        return $response;
+                    }
+
+                    $validator = Validator::make($userRequestValidate, [
+                        'email' => 'required|string|email|unique:users,email,'.$User->id.',id',
+                    ]);
+
+                    if($validator->fails()){
+                        return response()->json([
+                            'status' => false,
+                            'message' => 'Validation Error',
+                            'error' => $validator->errors()
+                        ]);      
+                    }
+
+                    $User->email = $userRequest->email;
+                    $User->name = $userRequest->resource_name;
+                    $User->updatedBy = $updatedBy;
+
+                    $User->save();
+
+                    $Profile->resource_name = $userRequest->resource_name; 
+                    $Profile->description = $userRequest->description; 
+                    $Profile->email = $userRequest->email; 
+                    $Profile->mobile = $userRequest->mobile; 
+                    $Profile->Skype_id = $userRequest->Skype_id; 
+                    $Profile->LinkedIn_id = $userRequest->LinkedIn_id; 
+                    $Profile->image = $userRequest->image; 
+                    $Profile->master_notes = $userRequest->master_notes; 
+                    $Profile->updatedBy = $updatedBy;
+
+                    if($Profile->save()){
+                        $Profile->image = $this->getImageFromS3($id, "Profile");
+                        if(!empty($userRequest->portfolio)){
+                            $deletePortfolios = Portfolio::where('profile_id',$id)->delete();
+                        }
+                        foreach($userRequest->portfolio as $portfolio){
+
+                            $Portfolio = new Portfolio([
+                                'profile_id' => $id,
+                                'profile_title' => $portfolio->profile_title,
+                                'portfolio_url' => $portfolio->portfolio_url,
+                                'portfolio_pdf_url' => $portfolio->portfolio_pdf_url,
+                                'validity' => $portfolio->validity,
+                                'profile_notes' => $portfolio->profile_notes,
+                                'status' => $portfolio->status,
+                                'updatedBy' => $updatedBy,
+                                'createdBy' => $updatedBy,
+                            ]);
+
+                            $Portfolio->save();
+                            $portfolioArr[] = $Portfolio;
+                        }
+
+                        $Profile['portfolios'] = $portfolioArr;
+                        $response['status'] = true;
+                        $response['message'] = 'Successfully updated resource!';
                         $response['userProfile'] = $Profile;
                     }else{    
                         $response['status'] = false;

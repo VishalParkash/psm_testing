@@ -43,10 +43,13 @@ class AdminController extends Controller
         // echo "<pre>";print_r($input);die;
         if($user = User::where('email', '=', $input['email'])->first()){
             
-            // $admin = Auth::guard('admin')->user();
+            
+
+
             $success['status'] =  true;
             $success['user'] =  $user; 
-            $success['token'] =  $user->createToken('ProfileSharingApp-admin')->accessToken; 
+            $success['token'] = $user->createToken('ProfileSharingApp-admin')->accessToken; 
+            // $success['expires_at'] = Carbon::parse($tokenResult->token->expires_at)->toDateTimeString();
             return response()->json($success); 
         } 
         else{

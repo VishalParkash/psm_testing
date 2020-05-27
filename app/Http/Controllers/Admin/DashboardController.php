@@ -10,6 +10,7 @@ use App\Profile;
 use App\Share;
 use App\Client;
 use App\Portfolio;
+use App\SharePortfolio;
 use App\Http\Traits\CommonTrait;
 use Carbon\Carbon;
 
@@ -58,73 +59,54 @@ class DashboardController extends Controller
         foreach($Shares as $share){
             $Ids = $share['profileShared'];
             $ids = explode(',', $Ids);
-            // print_r($ids);die;
-            // $ProfileIds= array();
+
             $profiles= array();
             $ProfileArr= array();
             if(!empty($ids)){
                 // $profiles= array();
-                $temp= array();
-            foreach ($ids as $portfolio_id) {
-                # code...
-                // echo $portfolio_id;
-                // echo "portfolio ids <br>";
-                if(!empty($portfolio_id)){
+                    $ProfileArr= array();
+                foreach ($ids as $portfolio_id) {
+                    if(!empty($portfolio_id)){
 
-                    $getProfileIds= Portfolio::select('profile_id')->where('id', '=', $portfolio_id)->first()->toArray();
-                    // $profiles = Profile::where('id', '=', $getProfileIds['profile_id'])->first()->toArray();
-                    // $getPortfoilio = Portfolio::where('id', '=', $portfolio_id)->first()->toArray();
-                    // $profiles['portfolio'][] = $getPortfoilio;
-                    // echo "<br>";
-                    // echo $getProfileIds['profile_id'];
-                    // echo "<br>";
-
-                        // if(!in_array($getProfileIds['profile_id'], $ProfileIds)){
-                            // $count = 1;
-                            // array_push($ProfileIds, $getProfileIds['profile_id']);
-                            // foreach($ProfileIds as $ProfileId){
-                    if(!empty($getProfileIds)){
-                                   $profiles = Profile::where('id', '=', $getProfileIds['profile_id'])->first()->toArray();
-                                   $profiles['image'] = $this->getImageFromS3($getProfileIds['profile_id'], 'Profile');
-                                $profiles['portfolio_id'] = $portfolio_id;
-                    }
-                     
-                                // echo "<pre>";print_r($profiles);
-                               
-                        // }else{
-                        //     $count = 0;
-                        //     $temp = array();
-                        // }
+                        // $getProfileIds= Portfolio::select('profile_id', 'lastViewedOn')->where('id', '=', $portfolio_id)->first();
+                        $SharePortfolio = SharePortfolio::select('profile_id', 'lastViewedOn')
+                                                        ->where('portfolio_id', $portfolio_id)
+                                                        ->where('share_id', $share['id'])
+                                                        ->first();
+                        if(!empty($SharePortfolio)){
+                            $SharePortfolio = $SharePortfolio->toArray();
+                            // echo "<pre>";print_r($getProfileIds);
+                            $profiles = Profile::where('id', '=', $SharePortfolio['profile_id'])->first()->toArray();
+                            $profiles['image'] = $this->getImageFromS3($SharePortfolio['profile_id'], 'Profile');
+                            $profiles['portfolio_id'] = $portfolio_id;
+                            $PortFolio_diff = Carbon::parse($SharePortfolio['lastViewedOn'])->diffForHumans();
+                            $profiles['lastViewedOn'] = $PortFolio_diff;
+                        }
+                    
+                    }   
+                        if(!empty($profiles)){
+                            $ProfileArr[] = $profiles;    
+                        }
                         
-                
+                }
             }
-            $ProfileArr[] = $profiles;    
-            // $ProfileArr[] = $profiles;
-                // if(($count==1)){
-                //     $ProfileArr[] = $profiles;    
-                // }else{
-                //     $ProfileArr[] = $temp;
-                // }
-                
-            }
-            }
-
 
             $getClients = Client::select('clientEmail')->where('share_id', '=', $share['id'])->get()->toArray();
-            // echo "<pre>";print_r($getClients);
             $clientEmail = '';
             foreach($getClients as $client){
                 $clientEmail .= $client['clientEmail'].",";
 
             }
-            // $getClients = implode(",", $getClient['clientEmail']);
-
-
 
             $diff = Carbon::parse($share['lastViewedOn'])->diffForHumans();
             $share['lastViewedOn'] = $diff;
             $share['clientContact'] = rtrim($clientEmail, ",");
-            $share['profiles'] = $ProfileArr;
+            if(!empty($ProfileArr)){
+                        $share['profiles'] = $ProfileArr;
+                    }else{
+                        $share['profiles'] = array();
+                    }
+            
             $ShareDetails[] = $share;
         }
                 if(!empty($ShareDetails)){
@@ -144,57 +126,5 @@ class DashboardController extends Controller
 
 
         return $response; 
-    }
-
-
-        public function index1111(){
-        // $getProfiles = CreateShare::where('clientGoogle_email', '=', $id)->get()->toArray();
-        $Shares = Share::all();
-        // echo "<pre>";print_r($getProfiles);die;
-        if(!empty($Shares)){
-            $Profiles = array();
-            $getPortfolio = array();
-            $ProfileIds = array();
-            $ProfileDetails = array();
-            $count = 0;
-        foreach($Shares as $share){
-            $Ids = $share['profileShared'];
-            $ids = explode(',', $Ids);
-            if(!empty($ids)){
-                $ProfileArr= array();
-                $temp= array();
-            foreach ($ids as $portfolio_id) {
-                # code...
-                if(!empty($portfolio_id)){
-                    $getProfileIds= Portfolio::select('profile_id')->where('id', '=', $portfolio_id)->first()->toArray();
-                        
-                        if(!in_array($getProfileIds['profile_id'], $ProfileIds)){
-                            array_push($ProfileIds, $getProfileIds['profile_id']); 
-                        }
-                        $ProfileIds[] =$ProfileIds;
-
-            }
-            $ProfileArr[] = $portfolio_id;
-            }
-            }
-
-
-            $share['profiles'] = $ProfileArr;
-            $ShareDetails[] = $share;
-        }
-
-                $response['status'] = true;
-                $response['details'] = $ShareDetails;
-                $response['message'] = 'Valid records';
-        }else{
-            $response['status'] = false;
-            $response['message'] = 'Invalid user';
-        }
-        
-
-
-        // echo "<pre>";print_r($ProfileDetails);die;
-        return $response; 
-        // echo "<pre>";print_r($getShares);
     }
 }

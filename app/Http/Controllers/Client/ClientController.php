@@ -46,16 +46,11 @@ class ClientController extends Controller
 //     });
 // }
 
-    public function index()
-    {
-        //
-    }
-
     public function login(Request $request, $queryString){
         $requestData = trim(file_get_contents("php://input"));
         $userRequestValidate = (json_decode($requestData, TRUE));
         $userRequest = (json_decode($requestData));
-
+        // $Portfolio = array();
         if(empty($queryString)){
             $response['status'] = false;
             $response['message'] = "Invalid login Url.";
@@ -63,7 +58,9 @@ class ClientController extends Controller
         }
         if(!empty($userRequest)){
 
-            $getShare = Share::where('queryString','=', $queryString)->first();
+            $getShare = Share::where('queryString','=', $queryString)
+                                ->where('status', 1)
+                                ->first();
             if(!empty($getShare)){
                 if($user = User::where('email', '=', $userRequest->clientEmail)->first()){
                     $response['status'] =  true;
@@ -83,7 +80,6 @@ class ClientController extends Controller
                 }
 
 
-                // $getClient = Client::find($client_id)->toArray();
                 if(!empty($getClient)){
                     $getClient->clientName = $userRequest->clientName;
                     $getClient->save();
@@ -101,12 +97,20 @@ class ClientController extends Controller
                                 $Portfolio['profile_title']= $getPortfolio->profile_title;
                                 $Portfolio['id']= $getPortfolio->id;
                             }
-                            $ProfileArr[] = $Portfolio;
+                            if(!empty($Portfolio)){
+                                $ProfileArr[] = $Portfolio;
+                            }
+                            
                         }
                         $getShare->lastViewedOn = Carbon::now();
                         $getShare->save();
                     }
-                    $getClient['profiles'] = $ProfileArr;
+                    if(!empty($ProfileArr)){
+                        $getClient['profiles'] = $ProfileArr;
+                    }else{
+                        $getClient['profiles'] = array();
+                    }
+                    
                     $response['status'] = true;
                     $response['token'] =  $user->createToken('ProfileSharingApp-client')->accessToken; 
                     $response['result'] = $getClient;
@@ -116,7 +120,7 @@ class ClientController extends Controller
                 
             }else{
                 $response['status'] = false;
-                $response['message'] = 'Invalid url';
+                $response['message'] = 'It seems to be an invalid share. Please try again';
             }
         }else{
             $response['status'] = false;
@@ -125,263 +129,5 @@ class ClientController extends Controller
 
         return $response;
 
-    }
-
-    
-    public function profiles1(Request $request){
-        $LoggedInClient = $request->user()->toArray();
-        $client_id = $LoggedInClient['id'];
-
-
-        $getClient = Client::find($client_id)->toArray();
-        if(!empty($getClient)){
-            $getShare = Share::find($getClient['share_id'])->toArray();
-            $getClient['share'] = $getShare;
-            $getPortfolios = $getShare['profileShared'];
-            $Portfolio_ids = explode(',', $getPortfolios);
-            if(!empty($Portfolio_ids)){
-                foreach($Portfolio_ids as $Portfolio_id){
-                    $getPortfolio = Portfolio::find($Portfolio_id);
-                    if(!empty($getPortfolio)){
-                        $getProfile = Profile::find($getPortfolio->profile_id);
-                        if(!empty($getProfile)){
-                            $getPortfolio['profile'] = $getProfile;
-                        }
-                    }
-                    $ProfileArr[] = $getPortfolio;
-                }
-            }
-            $getClient['profiles'] = $ProfileArr;
-
-
-            
-            $response['status'] = true;
-            $response['result'] = $getClient;
-            $response['message'] = "valid result";
-        }else{
-            $response['status'] = false;
-            $response['message'] = "No client found";
-        }
-
-        return $response;
-    }
-
-
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-
-    public function sharing(Request $request)
-    {
-        //
-
-        // echo "<pre>";print_r($request->session()->get('userData'));die;
-        // $QueryStr = Str::random(15);
-        $requestData = trim(file_get_contents("php://input"));
-        $userRequestValidate = (json_decode($requestData, TRUE));
-        $userRequest = (json_decode($requestData));
-
-        // echo "<pre>";print_r($userRequest);die;
-        
-        $client_id = 5;
-        $UrlToShare = 'https://millipixels.com/profiles/NC4SLMSKm3KVyRr';
-        $UrlAccess = 'Public';
-
-
-        // if ($request->session()->has('userData')) {
-        //     $sessionData = $request->session()->get('userData');
-        // }else{
-        //     return;
-        // }
-
-        // $client_id = $sessionData['user'][0]['id'];
-        // $UrlToShare = $sessionData['user'][0]['Url'];
-        // $UrlAccess = $sessionData['user'][0]['UrlAccess'];
-
-
-        // echo "<pre>";print_r($userRequest);die;
-
-        // $validator = Validator::make($userRequestValidate, [
-        //     'email' => 'required|string|email|unique:users',
-        //     'password' => 'required',
-        //     'user_role'  => 'required',
-        //     // 'mobile_number' => 'unique:users,mobile_number,NULL',
-        //     // 'title'  => 'required',
-        //     // 'portFolio_Url'  => 'required',
-        // ]);
-
-        // if($validator->fails()){
-        //     return response()->json([
-        //         'status' => false,
-        //         'message' => 'Validation Error',
-        //         'error' => $validator->errors()
-        //     ]);      
-        // }
-
-        // $UrlToShare = 'https://millipixels.com/profiles/'.$QueryStr;
-
-        // $SharingUrl = url('/profiles/').$QueryStr;
-
-        $ClientShare = new ClientShare([
-            'client_id' => ($client_id),
-            'clientGoogle_email' => ($userRequest->clientGoogle_email),
-            'clientLinkedIn_userName' => $userRequest->clientLinkedIn_userName,
-            'Url' => $UrlToShare,
-            'UrlAccess' => $UrlAccess,
-            'profileShared' => $userRequest->profileShared,
-            'status' => $userRequest->status,
-        ]);
-
-        if($ClientShare->save()){
-
-            $response['status'] = true;
-            $response['message'] = 'URL Sharing Successful';
-            $response['ClientShare'] = $ClientShare;
-
-
-            // $SharingUrl = new SharingUrl;
-
-            // if($SharingUrl){
-            //     $SharingUrl->sharing_id = $CreateShare->id;
-            //     $SharingUrl->queryString = $UrlToShare;
-            //     $SharingUrl->profileShared = $userRequest->profileShared;
-            //     $SharingUrl->urlSharingAccess = $userRequest->UrlAccess;
-
-            //     if($SharingUrl->save()){
-            //         $response['status'] = true;
-            //         $response['message'] = 'Sharing Url generated Successfully';
-            //         $response['user'] = $CreateShare;
-            //     }else{
-            //         $response['status'] = false;
-            //         $response['message'] = 'Error occurred';
-            //     }
-
-            // }
-            // die('here');
-            // try {
-    // Mail::to($user->email, '$user->name')->send(new VerificationMail($user));
-            
-        }else{
-            $response['status'] = false;
-            $response['message'] = 'Error occurred';
-        }
-
-        return $response;
-    }
-
-
-    public function create(Request $request)
-    {
-        //
-        $requestData = trim(file_get_contents("php://input"));
-        $userRequestValidate = (json_decode($requestData, TRUE));
-        $userRequest = (json_decode($requestData));
-        
-        $UrlToShare = 'https://millipixels.com/profiles/NC4SLMSKm3KVyRr';
-        $UrlAccess = 'Public';
-
-        $ClientShare = new ClientShare([
-            'client_id' => ($userRequest->client_id),
-            'clientGoogle_email' => ($userRequest->clientGoogle_email),
-            // 'clientLinkedIn_userName' => $userRequest->clientLinkedIn_userName,
-            'Url' => $UrlToShare,
-            'UrlAccess' => $UrlAccess,
-            'profileShared' => $userRequest->profileShared,
-            'status' => $userRequest->status,
-        ]);
-
-        if($ClientShare->save()){
-
-            $response['status'] = true;
-            $response['message'] = 'URL Sharing Successful';
-            $response['ClientShare'] = $ClientShare;
-
-
-            // $SharingUrl = new SharingUrl;
-
-            // if($SharingUrl){
-            //     $SharingUrl->sharing_id = $CreateShare->id;
-            //     $SharingUrl->queryString = $UrlToShare;
-            //     $SharingUrl->profileShared = $userRequest->profileShared;
-            //     $SharingUrl->urlSharingAccess = $userRequest->UrlAccess;
-
-            //     if($SharingUrl->save()){
-            //         $response['status'] = true;
-            //         $response['message'] = 'Sharing Url generated Successfully';
-            //         $response['user'] = $CreateShare;
-            //     }else{
-            //         $response['status'] = false;
-            //         $response['message'] = 'Error occurred';
-            //     }
-
-            // }
-            // die('here');
-            // try {
-    // Mail::to($user->email, '$user->name')->send(new VerificationMail($user));
-            
-        }else{
-            $response['status'] = false;
-            $response['message'] = 'Error occurred';
-        }
-
-        return $response;
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function show($id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy($id)
-    {
-        //
     }
 }

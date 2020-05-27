@@ -28,20 +28,15 @@ Route::prefix('/admin')->name('admin.')->group(function(){
 	Route::group([
       'middleware' => 'auth:api'
     ], function() {
-        // Route::get('logout', 'UserController@logout');
-        // Route::get('user', 'UserController@user');
-        // Route::post('password/change', 'PasswordController@change');
-
     	
     	//Profile Resources and Portfolios
-        Route::post('profile/add' , 'Admin\UserController@store')->name('add');
-        // Route::post('profile/update' , 'Admin\UserController@update')->name('update');
-        Route::post('/upload' , 'Admin\UserController@upload');
-        // Route::post('portfolio/pdf' , 'Admin\UserController@upload');
+    Route::post('profile/add' , 'Admin\UserController@store')->name('add');
+    Route::post('/upload' , 'Admin\UserController@upload');
         
 		Route::get('profile/{id}' , 'Admin\UserController@show');
 		Route::get('profiles/' , 'Admin\UserController@list');
 		Route::post('profile/{id}' , 'Admin\UserController@update');
+		Route::post('profile/edit/{id}' , 'Admin\UserController@updateProfile');
 		Route::post('profile/status/{id}' , 'Admin\UserController@updateProfileStatus');
 		Route::post('portfolio/add/{profile_id}' , 'Admin\UserController@portfolio');
 		Route::post('portfolio/update/{portfolio_id}' , 'Admin\UserController@updatePortfolio');
@@ -85,16 +80,19 @@ Route::prefix('/admin')->name('admin.')->group(function(){
 
 Route::group(['middleware' => ['web']], function () {
     // your routes here
-	Route::get('social/{SocialProvider}', 'Client\UserController@redirectToProvider');
-	Route::get('social/{SocialProvider}/callback', 'Client\UserController@handleProviderCallback');
+	Route::get('social/{SocialProvider}', 'Client\SocialController@redirectToProvider');
+	Route::get('social/{SocialProvider}/callback', 'Client\SocialController@handleProviderCallback');
 });
 
 Route::post('client/login/{qryString}' , 'Client\ClientController@login');
+Route::get('client/social/auth' , 'Client\SocialController@linkedinAuth');
+Route::get('client/social/access' , 'Client\SocialController@linkedinAccess');
 	Route::group([
       'middleware' => 'auth:api'
     ], function() {
     	Route::get('/client/dashboard/{share_id}', 'Client\ProfileController@profiles');
     	Route::get('/portfolio/views/{portfolio_id}/{share_id}', 'Client\ProfileController@countPortfolioViews');
     	Route::post('client/profiles' , 'Client\ProfileController@profiles');
+      Route::get('client/validate/{UpdatedAt}/{share_id}' , 'Client\ProfileController@getChange');
     });
 	// Route::post('/client/share', 'Client\ClientController@create');

@@ -10,6 +10,7 @@ use App\Portfolio;
 use App\Share;
 use App\Client;
 use App\History;
+use App\SharePortfolio;
 use Illuminate\Support\Str;
 use App\Http\Traits\CommonTrait;
 use Illuminate\Support\Facades\Mail;
@@ -83,7 +84,7 @@ class ShareController extends Controller
      */
     public function create(Request $request)
     {
-
+        $clientAdded =false;
         $QueryStr = Str::random(15);
         $requestData = trim(file_get_contents("php://input"));
         $userRequestValidate = (json_decode($requestData, TRUE));
@@ -130,8 +131,17 @@ class ShareController extends Controller
                 $getPortFolio = $this->getPortFolio($portfolio_id);
                 $getPortFolio['portfolio_id'] = $getPortFolio['id'];
                 $getResourceName = $this->getResourceName($getPortFolio['profile_id']);
+                $getPortFolio['image'] = $this->getImageFromS3($getPortFolio['profile_id'], "Profile");
                 $getPortFolio['resource_name'] = $getResourceName['resource_name'];  
                 $portfolios[] = $getPortFolio;
+
+                $SharePortfolio = new SharePortfolio();
+                if(!is_null($SharePortfolio)){
+                    $SharePortfolio->share_id = $CreateShare->id;
+                    $SharePortfolio->portfolio_id = $portfolio_id;
+                    $SharePortfolio->profile_id = $getPortFolio['profile_id'];
+                    $SharePortfolio->save();
+                }
             }
 
             $CreateShare['profiles'] = $portfolios;
@@ -197,9 +207,6 @@ class ShareController extends Controller
                 }
             }
 
-
-
-
             if($clientAdded){
                 $response['message'] = 'Sharing Url generated Successfully along with the client';
             }else{
@@ -208,7 +215,7 @@ class ShareController extends Controller
 
             $response['status'] = true;            
             $response['result'] = $CreateShare; 
-    // Mail::to($user->email, '$user->name')->send(new VerificationMail($user));
+            // Mail::to($user->email, '$user->name')->send(new VerificationMail($user));
         }else{
             $response['status'] = false;
             $response['message'] = 'Error occurred';
@@ -237,7 +244,6 @@ class ShareController extends Controller
         $loggedInUser = $request->user()->toArray();
         $createdBy = $loggedInUser['id'];
         $updatedBy = $loggedInUser['id'];
-
 
         if(!empty($share_id)){
             $getShare = Share::find($share_id);
@@ -296,8 +302,7 @@ class ShareController extends Controller
 
             }
         }
-        return $response;
-        
+        return $response;    
     }
 
     public function ClientShare($share_id){
@@ -351,12 +356,6 @@ class ShareController extends Controller
         }
 
         return $response;
-        
-        // echo "<pre>";print_r($Shares);die;
-        
-        // if(!empty($Portfolio)){
-        //     $getShare
-        // }
     }
 
     public function addNotes(Request $request, $shareId){
@@ -375,15 +374,13 @@ class ShareController extends Controller
             // $Admin = Admin::find($userRequest->admin_id);
             // if(!empty($Admin)){
 
-                    if($share->save()){
-                        $response['status'] = true;
-                        $response['message'] = 'Notes updated Successfully';
-                    }else{
-                        $response['status'] = false;
-                        $response['message'] = 'Error occurred';
-                    }
-                
-            
+            if($share->save()){
+                $response['status'] = true;
+                $response['message'] = 'Notes updated Successfully';
+            }else{
+                $response['status'] = false;
+                $response['message'] = 'Error occurred';
+            }    
         }else{
             $response['status'] = false;
             $response['message'] = 'We couldn’t find that share in our records. Try again.';
@@ -422,15 +419,24 @@ class ShareController extends Controller
                 $dbSharedProfiles = $CreateShare->profileShared;
                 $PostSharedProfiles = $userRequest->profileShared;
 
+                //  $SharingUrl = SharingUrl::where('sharing_id', '=', $id)->first();
+                // $SharingUrl->delete();
+
                 $DbData = explode(',', trim($dbSharedProfiles));
                 $PostData = explode(',', trim($PostSharedProfiles));
 
                 foreach($PostData as $ids){
                     if(!in_array($ids, $DbData)){
                         $this->IncrementCount((int)$ids, 'shares');
+                        $SharePortfolio = new SharePortfolio();
+                        if(!is_null($SharePortfolio)){
+                            $SharePortfolio->share_id = $id;
+                            $SharePortfolio->portfolio_id = $ids;
+                            $SharePortfolio->profile_id = $this->getProfileIdByPortfolio($ids);
+                            $SharePortfolio->save();
+                        }
                     }
                 }
-
 
                 $CreateShare->share_title = $userRequest->share_title;
                 $CreateShare->project_title = $userRequest->project_title;
@@ -458,10 +464,19 @@ class ShareController extends Controller
 
                         if(!empty($portfolio_id)){
                             // $this->IncrementCount($portfolio_id, 'shares');
-                            $getProfileIds= Portfolio::select('profile_id')->where('id', '=', $portfolio_id)->first()->toArray();
-                                $profiles = Profile::where('id', '=', $getProfileIds['profile_id'])->first()->toArray();
-                                $profiles['image'] = $this->getImageFromS3($getProfileIds['profile_id'], "Profile");
-                                $profiles['portfolio_id'] = $portfolio_id;
+                            $getProfileIds= Portfolio::select('profile_id')->where('id', '=', $portfolio_id)->first();
+                            if(!empty($getProfileIds)){
+                                $getProfileIds = $getProfileIds->toArray();
+                            
+                                $profiles = Profile::where('id', '=', $getProfileIds['profile_id'])->first();
+                                if(!empty($profiles)){
+                                    $profiles = $profiles->toArray();
+                                
+                                    $profiles['image'] = $this->getImageFromS3($getProfileIds['profile_id'], "Profile");
+                                    $profiles['portfolio_id'] = $portfolio_id;
+                                }
+                            }
+                            
                         }
 
                         $profilesArr[] = $profiles;

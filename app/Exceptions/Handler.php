@@ -50,6 +50,10 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Throwable $exception)
     {
+        // $response['message'] = $exception->getMessage();
+        // $response['status'] = false;
+        // $response['message'] = 'Something went wrong. Please check your parameters carefully or contact your administrator if the issue still persists.';
+        // return response()->json($response);
         return parent::render($request, $exception);
     }
 }
