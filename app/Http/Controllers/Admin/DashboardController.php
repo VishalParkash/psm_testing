@@ -68,7 +68,6 @@ class DashboardController extends Controller
                 foreach ($ids as $portfolio_id) {
                     if(!empty($portfolio_id)){
 
-                        // $getProfileIds= Portfolio::select('profile_id', 'lastViewedOn')->where('id', '=', $portfolio_id)->first();
                         $SharePortfolio = SharePortfolio::select('profile_id', 'lastViewedOn')
                                                         ->where('portfolio_id', $portfolio_id)
                                                         ->where('share_id', $share['id'])
@@ -76,11 +75,21 @@ class DashboardController extends Controller
                         if(!empty($SharePortfolio)){
                             $SharePortfolio = $SharePortfolio->toArray();
                             // echo "<pre>";print_r($getProfileIds);
-                            $profiles = Profile::where('id', '=', $SharePortfolio['profile_id'])->first()->toArray();
-                            $profiles['image'] = $this->getImageFromS3($SharePortfolio['profile_id'], 'Profile');
-                            $profiles['portfolio_id'] = $portfolio_id;
-                            $PortFolio_diff = Carbon::parse($SharePortfolio['lastViewedOn'])->diffForHumans();
-                            $profiles['lastViewedOn'] = $PortFolio_diff;
+                            $profiles = Profile::where('id', '=', $SharePortfolio['profile_id'])->first();
+                            // echo "<pre>"; print_r($profiles);
+                            if(!empty($profiles)){
+                                $profiles = $profiles->toArray();
+                                $profiles['image'] = $this->getImageFromS3($SharePortfolio['profile_id'], 'Profile');
+                                $profiles['portfolio_id'] = $portfolio_id;
+                                
+
+                                if(!empty($SharePortfolio['lastViewedOn'])){
+
+                                    $PortFolio_diff = Carbon::parse($SharePortfolio['lastViewedOn'])->diffForHumans();
+                                    $profiles['lastViewedOn'] = $PortFolio_diff;   
+                                }
+                            }
+                            
                         }
                     
                     }   
@@ -98,8 +107,11 @@ class DashboardController extends Controller
 
             }
 
-            $diff = Carbon::parse($share['lastViewedOn'])->diffForHumans();
-            $share['lastViewedOn'] = $diff;
+            if(!empty($share['lastViewedOn'])){
+                $diff = Carbon::parse($share['lastViewedOn'])->diffForHumans();
+                $share['lastViewedOn'] = $diff;    
+            }
+            
             $share['clientContact'] = rtrim($clientEmail, ",");
             if(!empty($ProfileArr)){
                         $share['profiles'] = $ProfileArr;
@@ -111,7 +123,7 @@ class DashboardController extends Controller
         }
                 if(!empty($ShareDetails)){
                     $response['status'] = true;
-                    $response['details'] = $ShareDetails;
+                    $response['result'] = $ShareDetails;
                     $response['message'] = 'Valid records';
                 }else{
                     $response['status'] = false;

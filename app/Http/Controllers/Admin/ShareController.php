@@ -96,8 +96,16 @@ class ShareController extends Controller
 
         // $UrlToShare = url('api/client/login/')."/".$QueryStr;
         // $UrlToShare = "https://localhost:3000/".$QueryStr;
-        // $UrlToShare = "http://localhost:3001/?key=".$QueryStr;
-        $UrlToShare = "https://staging.dg13bjcoiqrz8.amplifyapp.com?key=".$QueryStr;
+        $UrlToShare = "http://localhost:3001/?key=".$QueryStr;
+
+        // $UrlToShare = "https://staging.dg13bjcoiqrz8.amplifyapp.com?key=".$QueryStr;
+
+        $profileShared = $this->validateProfiles($userRequest->profileShared);
+        if(!$profileShared){
+            $response['status'] = false;
+            $response['message'] = "Invalid Profiles shared. Please try again";
+            return $response;
+        }
         $CreateShare = new Share([
             'share_title' => $userRequest->share_title,
             'project_title' => $userRequest->project_title,
@@ -128,23 +136,33 @@ class ShareController extends Controller
             $ids = explode(',', $Ids);
             foreach($ids as $portfolio_id){
                 $this->IncrementCount($portfolio_id, 'shares');
-                $getPortFolio = $this->getPortFolio($portfolio_id);
-                $getPortFolio['portfolio_id'] = $getPortFolio['id'];
-                $getResourceName = $this->getResourceName($getPortFolio['profile_id']);
-                $getPortFolio['image'] = $this->getImageFromS3($getPortFolio['profile_id'], "Profile");
-                $getPortFolio['resource_name'] = $getResourceName['resource_name'];  
-                $portfolios[] = $getPortFolio;
+                $getPortFolio = $this->getPortFolio($portfolio_id, $CreateShare->id);
+                if(!empty($getPortFolio)){
+                    // $getPortFolio['portfolio_id'] = $getPortFolio['id'];
+                    
+                    $getResourceName = $this->getResourceName($getPortFolio['profile_id']);
+                    $getPortFolio['image'] = $this->getImageFromS3($getPortFolio['profile_id'], "Profile");
+                    $getPortFolio['resource_name'] = $getResourceName['resource_name'];
 
-                $SharePortfolio = new SharePortfolio();
-                if(!is_null($SharePortfolio)){
-                    $SharePortfolio->share_id = $CreateShare->id;
-                    $SharePortfolio->portfolio_id = $portfolio_id;
-                    $SharePortfolio->profile_id = $getPortFolio['profile_id'];
-                    $SharePortfolio->save();
+                    $getPortFolio['portfolio_id'] = $getPortFolio['id'];
+                    $getPortFolio['id'] = $getPortFolio['profile_id'];
+                    $portfolios[] = $getPortFolio;
+
+                    $SharePortfolio = new SharePortfolio();
+                    if(!is_null($SharePortfolio)){
+                        $SharePortfolio->share_id = $CreateShare->id;
+                        $SharePortfolio->portfolio_id = $portfolio_id;
+                        $SharePortfolio->profile_id = $getPortFolio['profile_id'];
+                        $SharePortfolio->save();
+                    }
                 }
+                
             }
 
-            $CreateShare['profiles'] = $portfolios;
+            if(!empty($portfolios)){
+                $CreateShare['profiles'] = $portfolios;
+            }
+            
             
             if(!empty($userRequest->clientContact)){
                 $CreateShare['clientContact'] = $userRequest->clientContact;
@@ -280,8 +298,8 @@ class ShareController extends Controller
             $updatedBy = $user['id'];
             $QueryStr = Str::random(15);
             // $UrlToShare = url('api/client/login/')."/".$QueryStr;
-            // $UrlToShare = "http://localhost:3001/?key=".$QueryStr;
-            $UrlToShare = "https://staging.dg13bjcoiqrz8.amplifyapp.com?key=".$QueryStr;
+            $UrlToShare = "http://localhost:3001/?key=".$QueryStr;
+            // $UrlToShare = "https://staging.dg13bjcoiqrz8.amplifyapp.com?key=".$QueryStr;
 
             // http://localhost:3001/?key=5Mvh16WUyK8VxWW
             
@@ -311,9 +329,10 @@ class ShareController extends Controller
         if(!empty($getShare)){
             $Ids = $getShare->profileShared;
             $ids = explode(',', $Ids);
+            $portfolios = array();
             foreach($ids as $portfolio_id){
 
-                $getPortFolio = $this->getPortFolio($portfolio_id);
+                $getPortFolio = $this->getPortFolio($portfolio_id, $share_id);
                 $getResourceName = $this->getResourceName($getPortFolio['profile_id']);
                 $getPortFolio['resource_name'] = $getResourceName['resource_name'];  
                 $portfolios[] = $getPortFolio;
@@ -425,6 +444,20 @@ class ShareController extends Controller
                 $DbData = explode(',', trim($dbSharedProfiles));
                 $PostData = explode(',', trim($PostSharedProfiles));
 
+
+                foreach($DbData as $Previuos_ids){
+                    if(!in_array($Previuos_ids, $PostData)){
+                        $this->DecrementCount((int)$Previuos_ids, 'shares');
+                        $SharePortfolio = SharePortfolio::where('share_id', $id)
+                                                        ->where('portfolio_id', $Previuos_ids)
+                                                        ->delete();
+                                                // echo "<pre>";print_r($SharePortfolio);              
+                        // if(!empty($SharePortfolio)){
+                        //     $SharePortfolio->delete();
+                        // }
+                    }
+                }
+
                 foreach($PostData as $ids){
                     if(!in_array($ids, $DbData)){
                         $this->IncrementCount((int)$ids, 'shares');
@@ -437,6 +470,15 @@ class ShareController extends Controller
                         }
                     }
                 }
+
+                $profileShared = $this->validateProfiles($userRequest->profileShared);
+
+                if(!$profileShared || (empty($userRequest->profileShared))) {
+                    $response['status'] = false;
+                    $response['message'] = "Invalid Profiles shared. Please try again";
+                    return $response;
+                }
+
 
                 $CreateShare->share_title = $userRequest->share_title;
                 $CreateShare->project_title = $userRequest->project_title;
@@ -460,7 +502,7 @@ class ShareController extends Controller
                     // }
                     foreach($ids as $portfolio_id){
                         // if(is_int($portfolio_id)){
-                            $getPortFolio = $this->getPortFolio($portfolio_id);
+                            $getPortFolio = $this->getPortFolio($portfolio_id, $id);
 
                         if(!empty($portfolio_id)){
                             // $this->IncrementCount($portfolio_id, 'shares');
@@ -491,7 +533,7 @@ class ShareController extends Controller
 
                     $response['status'] = true;
                     $response['message'] = 'Sharing Url renewed Successfully';
-                    $response['user'] = $CreateShare;
+                    $response['result'] = $CreateShare;
                     
                 }else{
                     $response['status'] = false;

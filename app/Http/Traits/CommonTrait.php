@@ -8,6 +8,8 @@ use App\Share;
 use App\History;
 use App\Portfolio;
 use App\User;
+use App\SharePortfolio;
+
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 
@@ -151,16 +153,49 @@ trait CommonTrait	{
         return $response;
     }
 	
-    function getPortFolio($portfolio_id){
+    function getPortFolio($portfolio_id, $share_id=false){
         if(!empty(($portfolio_id))){
             $Portfolio = Portfolio::find($portfolio_id);
             if(!empty($Portfolio)){
                 $Portfolio = $Portfolio->toArray();
+                $SharePortfolio = SharePortfolio::select('lastViewedOn')
+                                                        ->where('portfolio_id', $portfolio_id)
+                                                        ->where('share_id', $share_id)
+                                                        ->first();
+
+                if(!empty($SharePortfolio)){
+                    $SharePortfolio = $SharePortfolio->toArray();
+                    if(!empty($SharePortfolio['lastViewedOn'])){
+                        $diff = Carbon::parse($SharePortfolio['lastViewedOn'])->diffForHumans();
+                        $Portfolio['lastViewedOn'] = $diff;    
+                    }
+                }
+                
                 return $Portfolio;
             }
         }else{
             return false;
         }
+    }
+
+    function validateProfiles($portfolios){
+        if(!empty($portfolios)){
+            $getPortFolioIds = explode(',', $portfolios);
+            foreach($getPortFolioIds as $PortfolioId){
+                $Portfolio = Portfolio::select('profile_id')->where('id', $PortfolioId)->first();                    
+                if(!empty($Portfolio)){
+                    $getProfile = Profile::find($Portfolio->profile_id);
+                    if(empty($getProfile)){
+                        return false;
+                    }
+                }else{
+                    return false;
+                }
+            }
+        }else{
+            return false;
+        }
+        return true;
     }
 
     function getShareTitle($share_id){
@@ -286,4 +321,26 @@ trait CommonTrait	{
         }
         return $response;
     }
+
+        public function DecrementCount($portfolio_id, $IncrementType){
+        if(!empty($portfolio_id)){
+            $Portfolio = Portfolio::find($portfolio_id);
+            if(!empty($Portfolio)){
+                // $Portfolio->increment('views');
+                $Portfolio->$IncrementType--;
+                // if($Portfolio->increment($IncrementType)) {
+                if($Portfolio->save()) {
+                    $response['status'] = true;
+                }else{
+                    $response['status'] = false;
+                }
+            }else{
+                $response['status'] = false;
+            }
+        }else{
+            $response['status'] = false;
+        }
+        return $response;
+    }
+
 }

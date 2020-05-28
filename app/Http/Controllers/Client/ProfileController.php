@@ -165,6 +165,7 @@ use CommonTrait;
                     
                     $getClient = $getClient->toArray();
                     $getShare = Share::find($getClient['share_id'])->toArray();
+                    $getClient['share_details'] = $getShare;
                     $getClient['share_title'] = $this->getShareTitle($getClient['share_id']);
                     $getPortfolios = $getShare['profileShared'];
                     $Portfolio_ids = explode(',', $getPortfolios);
@@ -198,8 +199,8 @@ use CommonTrait;
                     $response['message'] = "We couldn't find the record.";
                 }
             }else{
-                $response['status'] = false;
-                $response['message'] = 'It seems to be an invalid share. Please try again';
+                $response['status'] = 401;
+                $response['message'] = 'Unauthenticated';
             }
         
                 return $response;
@@ -207,8 +208,10 @@ use CommonTrait;
 
     public function getChange($UpdatedAt,$queryString){
         $Portfolio = array();
-
-        $getShare = Share::where('queryString','=', $queryString)->first();
+        $UpdatedAt = Carbon::parse($UpdatedAt);
+        $getShare = Share::where('queryString','=', $queryString)
+                            ->where('status', 1)
+                            ->first();
         if(!empty($getShare)){
 
             if($getShare->updated_at == $UpdatedAt){
@@ -226,6 +229,7 @@ use CommonTrait;
                            
                         $getClient = $getClient->toArray();
                         $getShare = Share::find($getClient['share_id'])->toArray();
+                        $getClient['share_details'] = $getShare;
                         $getClient['share_title'] = $this->getShareTitle($getClient['share_id']);
                         $getPortfolios = $getShare['profileShared'];
                         $Portfolio_ids = explode(',', $getPortfolios);
@@ -252,7 +256,8 @@ use CommonTrait;
 
             
         }else{
-            $response['status'] = false;
+            $response['status'] = 401;
+            $response['message'] = "Unauthenticated";
         }
         return $response;                          
         // if(!empty($share_id)){

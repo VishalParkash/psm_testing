@@ -71,8 +71,17 @@ class UserController extends Controller {
                 if(!empty($portfolioList)){
                     $portfolioArr = array();
                     foreach($portfolioList as $portfolio){
-                        $diff = Carbon::parse($portfolio['lastViewedOn'])->diffForHumans();
-                        $portfolio['lastViewedOn'] = $diff;
+
+
+                        if(!empty($portfolio['lastViewedOn'])){
+
+                            $diff = Carbon::parse($portfolio['lastViewedOn'])->diffForHumans();
+                            $portfolio['lastViewedOn'] = $diff;
+   
+                            }
+
+
+                        
                         $portfolioArr[] = $portfolio;
                         // $portfolio['']
                     }
