@@ -23,6 +23,9 @@ Route::prefix('/admin')->name('admin.')->group(function(){
 	Route::post('login', 'Admin\AdminController@login')->name('login');
 	// Route::post('/user' , 'Admin\UserController@store');
 	Route::post('assistance', 'Admin\UserController@assistance');
+    Route::post('technology/add', 'Admin\TechnologyController@addTechnology');
+    Route::post('technology/icon', 'Admin\TechnologyController@uploadIcon');
+    Route::get('technologies', 'Admin\TechnologyController@index');
 	
 
 	Route::group([
@@ -30,14 +33,18 @@ Route::prefix('/admin')->name('admin.')->group(function(){
     ], function() {
     	
     	//Profile Resources and Portfolios
-    Route::post('profile/add' , 'Admin\UserController@store')->name('add');
-    Route::post('/upload' , 'Admin\UserController@upload');
-        
+        Route::post('profile/add' , 'Admin\UserController@store')->name('add');
+        Route::post('profile/create' , 'Admin\UserController@createProfile');
+        Route::post('/upload' , 'Admin\UserController@upload');
 		Route::get('profile/{id}' , 'Admin\UserController@show');
 		Route::get('profiles/' , 'Admin\UserController@list');
 		Route::post('profile/{id}' , 'Admin\UserController@update');
 		Route::post('profile/edit/{id}' , 'Admin\UserController@updateProfile');
 		Route::post('profile/status/{id}' , 'Admin\UserController@updateProfileStatus');
+        Route::post('profile/gallery/upload/' , 'Admin\UserController@uploadGallery');
+        Route::get('profile/gallery/{id}' , 'Admin\UserController@getGallery');
+        // Route::post('profile/gallery/add/{id}' , 'Admin\UserController@addGallery');
+
 		Route::post('portfolio/add/{profile_id}' , 'Admin\UserController@portfolio');
 		Route::post('portfolio/update/{portfolio_id}' , 'Admin\UserController@updatePortfolio');
 		Route::post('portfolio/status/{id}' , 'Admin\UserController@updatePortfolioStatus');
@@ -59,7 +66,13 @@ Route::prefix('/admin')->name('admin.')->group(function(){
 		Route::get('profiles/{portfolio_id}/' , 'Admin\ShareController@portfolioShares');
 		Route::post('share/status/{id}' , 'Admin\ShareController@updateShareStatus');
 		
-
+        //Projects
+        Route::post('project' , 'Admin\ProjectController@create');
+        Route::post('project/{project}' , 'Admin\ProjectController@create');
+        // Route::post('project/{project}' , 'Admin\ProjectController@update');
+        Route::get('project/{project}' , 'Admin\ProjectController@project');
+        Route::get('projects' , 'Admin\ProjectController@projects');
+        Route::post('image/project/' , 'Admin\ProjectController@uploadProjectImage');
 
 		//Client
 		Route::post('client/add' , 'Admin\ClientController@create');

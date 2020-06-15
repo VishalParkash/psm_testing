@@ -59,12 +59,9 @@ class DashboardController extends Controller
         foreach($Shares as $share){
             $Ids = $share['profileShared'];
             $ids = explode(',', $Ids);
-
-            $profiles= array();
-            $ProfileArr= array();
             if(!empty($ids)){
-                // $profiles= array();
-                    $ProfileArr= array();
+                $profiles= array();
+                $ProfileArr= array();
                 foreach ($ids as $portfolio_id) {
                     if(!empty($portfolio_id)){
 
@@ -74,28 +71,34 @@ class DashboardController extends Controller
                                                         ->first();
                         if(!empty($SharePortfolio)){
                             $SharePortfolio = $SharePortfolio->toArray();
-                            // echo "<pre>";print_r($getProfileIds);
                             $profiles = Profile::where('id', '=', $SharePortfolio['profile_id'])->first();
-                            // echo "<pre>"; print_r($profiles);
                             if(!empty($profiles)){
                                 $profiles = $profiles->toArray();
+                                $profiles['profile_title'] = $this->getPortFolioTitle($portfolio_id);
                                 $profiles['image'] = $this->getImageFromS3($SharePortfolio['profile_id'], 'Profile');
                                 $profiles['portfolio_id'] = $portfolio_id;
                                 
-
                                 if(!empty($SharePortfolio['lastViewedOn'])){
-
                                     $PortFolio_diff = Carbon::parse($SharePortfolio['lastViewedOn'])->diffForHumans();
                                     $profiles['lastViewedOn'] = $PortFolio_diff;   
                                 }
                             }
-                            
+                        }else{
+                                $getProfileIds= Portfolio::select('profile_id')->where('id', $portfolio_id)->first();
+                                $profiles = Profile::where('id', '=', $getProfileIds->profile_id)->first();
+                                if(!empty($profiles)){
+                                    $profiles = $profiles->toArray();
+                                    $profiles['profile_title'] = $this->getPortFolioTitle($portfolio_id);
+                                    $profiles['image'] = $this->getImageFromS3($getProfileIds->profile_id, 'Profile');
+                                    $profiles['portfolio_id'] = $portfolio_id;
+                                    
+                                    
+                                }
                         }
-                    
                     }   
-                        if(!empty($profiles)){
-                            $ProfileArr[] = $profiles;    
-                        }
+                    if(!empty($profiles)){
+                        $ProfileArr[] = $profiles;    
+                    }
                         
                 }
             }

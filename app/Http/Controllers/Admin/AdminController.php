@@ -41,11 +41,18 @@ class AdminController extends Controller
          // echo "<pre>";print_r($userRequest);die;
         $input = $request->all();
         // echo "<pre>";print_r($input);die;
+        $validator = Validator::make($request->all(), [ 
+            // 'name' => 'required', 
+            'email' => 'required|email', 
+            // 'password' => 'required', 
+            // 'c_password' => 'required|same:password', 
+        ]);
+        if ($validator->fails()) { 
+            return response()->json(['error'=>$validator->errors()], 401);            
+        }
+        
         if($user = User::where('email', '=', $input['email'])->first()){
             
-            
-
-
             $success['status'] =  true;
             $success['user'] =  $user; 
             $success['token'] = $user->createToken('ProfileSharingApp-admin')->accessToken; 

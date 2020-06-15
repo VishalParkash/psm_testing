@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Client;
 use App\Share;
+use App\User;
 use Validator;
 use App\Http\Traits\CommonTrait;
 use Illuminate\Support\Facades\Mail;
@@ -86,6 +87,21 @@ class ClientController extends Controller
                                 return $response;
                             }
 
+            $User = User::where('email', '=', $userRequest->clientEmail)->first();
+                    if(empty($User)){
+                        $User = new User();
+                        if(!is_null($User)){
+                            $User->name = $userRequest->clientName;
+                            $User->email = $userRequest->clientEmail;
+                            $User->user_role = 'client';
+                            if(!$User->save()){
+                                $response['status'] = false;
+                                $response['message'] = "Something went wrong while creating the client. Please try again.";
+                                return $response;
+                            }
+                        }
+                    }
+
         	$CreateClient = new Client([
             'share_id' => $userRequest->share_id,
             'clientName' => $userRequest->clientName,
@@ -101,6 +117,29 @@ class ClientController extends Controller
             'createdBy' => $createdBy,
             'updatedBy' => $updatedBy,
         ]);
+                    
+                    
+                    
+                    
+                    
+
+                    // $CreateClient = new Client([
+                    //     'share_id' => $CreateShare->id,
+                    //     'clientEmail' => $clientContact,
+                    //     'status' => $userRequest->status,
+                    //     'createdBy' => $createdBy,
+                    //     'updatedBy' => $updatedBy,
+                    // ]);
+
+                    // if($CreateClient->save()){
+                    //     $clientAdded = true;
+                    //     $CreateClientId = $CreateClient->id;
+                    // }
+                    // if($userRequest->EmailSent ==1){
+                    //     Mail::to($clientContact)->send(new InvitationMail($UrlToShare));
+
+                    // }
+
 
 	        if($CreateClient->save()){
 	        	if($userRequest->invitationSent ==1){
@@ -156,6 +195,32 @@ class ClientController extends Controller
 
         $ValidateShare = Share::find($userRequest->share_id);
         if(!empty($ValidateShare)){
+            $UrlToShare = $ValidateShare->share_url;
+            $findClient = Client::select('clientEmail')
+                            ->where('clientEmail',$userRequest->clientEmail)
+                            ->where('id', '!=' , $client_id)
+                            ->where('share_id',$userRequest->share_id)
+                            ->first();
+                            if(!empty($findClient)){
+                                $response['status'] = false;
+                                $response['message'] = "Client with same email has already been associated with this share. Please use another email";
+                                return $response;
+                            }
+
+            $User = User::where('email', '=', $userRequest->clientEmail)->first();
+                    if(empty($User)){
+                        $User = new User();
+                        if(!is_null($User)){
+                            $User->name = $userRequest->clientName;
+                            $User->email = $userRequest->clientEmail;
+                            $User->user_role = 'client';
+                            if(!$User->save()){
+                                $response['status'] = false;
+                                $response['message'] = "Something went wrong while creating the client. Please try again.";
+                                return $response;
+                            }
+                        }
+                    }
 
         	$getClient = Client::find($client_id);
         	if(!empty($getClient)){
@@ -172,7 +237,43 @@ class ClientController extends Controller
 	            $getClient->status = $userRequest->status;
 	            $getClient->updatedBy = $updatedBy;
 
+
 	            if($getClient->save()){
+
+                    if($userRequest->invitationSent ==1){
+                    Mail::to($userRequest->clientEmail)->send(new InvitationMail($UrlToShare));
+                    if($userRequest->invitationSent ==1){
+                        $HistoryData['share_id'] = $userRequest->share_id;
+                        $HistoryData['client_id'] = $client_id;
+                        $HistoryData['description'] = "Invitation sent to ".$userRequest->clientName;
+                        $HistoryData['activityType'] = "email_invitation";
+                        $HistoryData['loginType'] = "adminLogin";
+                        $HistoryData['createdBy'] = $updatedBy;
+                        $HistoryData['updatedBy'] = $updatedBy;
+                        $this->addHistory($HistoryData);
+                    }
+
+                }
+            $HistoryData['share_id'] = $userRequest->share_id;
+            $HistoryData['client_id'] = $client_id;
+            $HistoryData['description'] = "Contact updated by ".ucwords($this->getAdminName($updatedBy));
+            $HistoryData['activityType'] = "contact_update";
+            $HistoryData['loginType'] = "adminLogin";
+            $HistoryData['createdBy'] = $updatedBy;
+            $HistoryData['updatedBy'] = $updatedBy;
+            $this->addHistory($HistoryData);
+
+
+                    // $HistoryData['share_id'] = $userRequest->share_id;
+                    // $HistoryData['client_id'] = $client_id;
+                    // $HistoryData['description'] = "Contact updated by ".ucwords($this->getAdminName($updatedBy));
+                    // $HistoryData['activityType'] = "contact_update";
+                    // $HistoryData['loginType'] = "adminLogin";
+                    // $HistoryData['createdBy'] = $updatedBy;
+                    // $HistoryData['updatedBy'] = $updatedBy;
+                    // $this->addHistory($HistoryData);
+
+
 	            	$getClients = Client::all()->toArray();
 	        		$getClient['clients'] = $getClients;
 	            	$response['status'] = true;

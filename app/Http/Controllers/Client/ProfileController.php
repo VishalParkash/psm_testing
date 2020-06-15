@@ -8,6 +8,7 @@ use App\Share;
 use App\Client;
 use App\Profile;
 use App\Portfolio;
+use App\Gallery;
 use App\SharePortfolio;
 use App\User;
 use Illuminate\Support\Facades\Auth;
@@ -173,14 +174,42 @@ use CommonTrait;
                         foreach($Portfolio_ids as $Portfolio_id){
                             $getPortfolio = Portfolio::find($Portfolio_id);
                             if(!empty($getPortfolio)){
-                                $Portfolio['resource_name']= $this->getResourceName($getPortfolio->profile_id)['resource_name'];
-                                $Portfolio['profile_url']= $getPortfolio->portfolio_url;
-                                $Portfolio['profile_title']= $getPortfolio->profile_title;
-                                $Portfolio['id']= $getPortfolio->id;
-                                $Portfolio['pdfUrl']= $this->getImageFromS3($getPortfolio->id, $Portfolio);
+                                $getPortfolio['resource_name']= $this->getResourceName($getPortfolio->profile_id)['resource_name'];
+                                $getPortfolio['profile_url']= $getPortfolio->portfolio_url;
+                                $getPortfolio['profile_title']= $getPortfolio->profile_title;
+                                $getPortfolio['id']= $getPortfolio->id;
+                                $getPortfolio['pdfUrl']= $this->getImageFromS3($getPortfolio->id, 'Portfolio');
+
+                                $getPortfolio['projectName'] = json_decode($getPortfolio->projectName);
+                                $getPortfolio['technologiesUsed'] = json_decode($getPortfolio->technologiesUsed);
+                                $getPortfolio['image'] = $this->getImageFromS3($getPortfolio->profile_id, 'Profile');
+                                $getPortfolio['bannerImage'] = $this->getImageFromS3($getPortfolio->profile_id, 'profileBannerImage');
+                                
+                                $getResource = Profile::find($getPortfolio->profile_id, ['education']);
+                                if(!empty($getResource)){
+                                    $getPortfolio['education'] = json_decode($getResource->education);
+                                }
+
+                                $gallery = array();
+                                $Gallery = Gallery::where('profile_id', $getPortfolio->profile_id)->get();
+                                if(!empty($Gallery)){
+                                    $Gallery = $Gallery->toArray();
+                                    
+                                    foreach($Gallery as $galleryImages){
+                                        $Image['ImageId'] = md5(uniqid());
+                                        $Image['file'] = $galleryImages['galleryImage'];
+                                        $Image['fileUrl'] = $this->getImageFromS3($galleryImages['id'], "Gallery");
+                                        $gallery[] = $Image;
+                                    }
+                                }
+                                if(!empty($gallery)){
+                                    $getPortfolio['gallery'] = $gallery;
+                                }else{
+                                    $getPortfolio['gallery'] = array();
+                                }
                             }
-                            if(!empty($Portfolio)){
-                                $ProfileArr[] = $Portfolio;
+                            if(!empty($getPortfolio)){
+                                $ProfileArr[] = $getPortfolio;
                             }
                             
                         }
@@ -237,13 +266,41 @@ use CommonTrait;
                             foreach($Portfolio_ids as $Portfolio_id){
                                 $getPortfolio = Portfolio::find($Portfolio_id);
                                 if(!empty($getPortfolio)){
-                                    $Portfolio['resource_name']= $this->getResourceName($getPortfolio->profile_id)['resource_name'];
-                                    $Portfolio['profile_url']= $getPortfolio->portfolio_url;
-                                    $Portfolio['profile_title']= $getPortfolio->profile_title;
-                                    $Portfolio['id']= $getPortfolio->id;
-                                    $Portfolio['pdfUrl']= $this->getImageFromS3($getPortfolio->id, $Portfolio);
+                                    $getPortfolio = $getPortfolio->toArray();
+                                    $getPortfolio['resource_name']= $this->getResourceName($getPortfolio['profile_id'])['resource_name'];
+                                    $getPortfolio['profile_url']= $getPortfolio['portfolio_url'];
+                                    $getPortfolio['profile_title']= $getPortfolio['profile_title'];
+                                    $getPortfolio['id']= $getPortfolio['id'];
+                                    $portfolio['projectName'] = json_decode($getPortfolio['projectName']);
+                                    $portfolio['technologiesUsed'] = json_decode($getPortfolio['technologiesUsed']);
+                                    $getPortfolio['pdfUrl']= $this->getImageFromS3($getPortfolio['id'], 'Portfolio');
+                                    $getPortfolio['image'] = $this->getImageFromS3($getPortfolio['profile_id'], 'Profile');
+                                    $getPortfolio['bannerImage'] = $this->getImageFromS3($getPortfolio['profile_id'], 'profileBannerImage');
+                                    
+                                    $getResource = Profile::find($getPortfolio['profile_id'], ['education']);
+                                    if(!empty($getResource)){
+                                        $getPortfolio['education'] = json_decode($getResource->education);
+                                    }
+
+                                    $gallery = array();
+                                    $Gallery = Gallery::where('profile_id', $getPortfolio['profile_id'])->get();
+                                    if(!empty($Gallery)){
+                                        $Gallery = $Gallery->toArray();
+                                        
+                                        foreach($Gallery as $galleryImages){
+                                            $Image['ImageId'] = md5(uniqid());
+                                            $Image['file'] = $galleryImages['galleryImage'];
+                                            $Image['fileUrl'] = $this->getImageFromS3($galleryImages['id'], "Gallery");
+                                            $gallery[] = $Image;
+                                        }
+                                    }
+                                    if(!empty($gallery)){
+                                        $getPortfolio['gallery'] = $gallery;
+                                    }else{
+                                        $getPortfolio['gallery'] = array();
+                                    }
                                 }
-                                $ProfileArr[] = $Portfolio;
+                                $ProfileArr[] = $getPortfolio;
                             }
                         }
                         $getClient['profiles'] = $ProfileArr;

@@ -8,6 +8,9 @@ use App\Share;
 use App\History;
 use App\Portfolio;
 use App\User;
+use App\Project;
+use App\Technology;
+use App\Gallery;
 use App\SharePortfolio;
 
 use Carbon\Carbon;
@@ -16,10 +19,61 @@ use Illuminate\Support\Str;
 
 trait CommonTrait	{
 
+    public function uploadFile($getImageData, $uploadType=false, $search_id=false){
+        $requestData = trim(file_get_contents("php://input"));
+        $requestData = rtrim($requestData, ":");
+        $userRequest = (json_decode($requestData, true));
+        // echo "<pre>";print_r($getImageData);
+        // $getImageData = $userRequest['file'];
+                    // echo "<pre>";print_r($getImageData);
+        if (!empty($getImageData)) {
 
-    // function uploadFileToS3($fileType, $file, $resource){
+            if($uploadType == 'project'){
+                $directory = 'projects';
+            }elseif($uploadType == 'icon'){
+                $directory = 'icons';
+            }elseif($uploadType == 'gallery'){
+                $directory = 'gallery';
+            }elseif($uploadType == 'profileBannerImage'){
+                $directory = 'profileBannerImage';
+            }
+            
+            $response = array();
+            $ImageArray = explode(";base64,", $getImageData);           //explode the image
 
-    // }
+            $forType = $ImageArray[0];                                  //get image type
+            $forImage = $ImageArray[1];                                 //base64 encrypted image    
+            $toGetType = explode("/", $forType);
+            
+            $extn_type = $toGetType[1];
+            if($extn_type == 'svg+xml'){
+                $extn_type = 'svg';
+            }
+             
+            //decoding the base64 image to a normal image
+            $image_base64 = base64_decode($forImage);
+
+            //unique name for the image
+            $fileSave = 'PSM_'.date('His-mdY')."_".uniqid() .".".$extn_type;    
+
+            //uploadind the image to the s3 bucket
+            if(Storage::disk('s3')->put($directory.'/' . $fileSave, $image_base64)) {
+                return $fileSave;
+                $response['status'] = true;
+                $response['message'] = 'file uploaded.';
+                $response['file'] =  $fileSave;
+
+                
+            }else{
+                $response['status'] = false;
+                $response['message'] = 'Error occured while saving the file.';
+            }
+        }else{
+            $response['status'] = false;
+            $response['message'] = 'No file uploaded or invalid file type.';
+        }
+        return $response;
+    }
 
 	function getImageFromS3($profile_id, $userType){
 
@@ -27,10 +81,27 @@ trait CommonTrait	{
             $getProfileImageName = Profile::select('image')->where("id","=",$profile_id)->first()->toArray();
             $File = $getProfileImageName['image'];
             $key = "profile/".$File;
+        }elseif ($userType == 'profileBannerImage') {
+            $getProfileImageName = Profile::select('bannerImage')->where("id","=",$profile_id)->first()->toArray();
+            $File = $getProfileImageName['bannerImage'];
+            $key = "profile/".$File;
         }elseif ($userType == 'Portfolio') {
             $getProfileImageName = Portfolio::select('portfolio_pdf_url')->where("id","=",$profile_id)->first()->toArray();
             $File = $getProfileImageName['portfolio_pdf_url'];
             $key = "pdf/".$File;
+        }elseif ($userType == 'Project') {
+            $getProfileImageName = Project::select('ProjectBannerImage')->where("id","=",$profile_id)->first()->toArray();
+            $File = $getProfileImageName['ProjectBannerImage'];
+            $key = "projects/".$File;
+        }elseif ($userType == 'Icon') {
+            $getProfileImageName = Technology::select('icon')->where("id","=",$profile_id)->first()->toArray();
+            $File = $getProfileImageName['icon'];
+            $key = "icons/".$File;
+        }elseif ($userType == 'Gallery') {
+            $getProfileImageName = Gallery::select('galleryImage')->where("id","=",$profile_id)->first()->toArray();
+            // echo "<pre>";print_r($getProfileImageName);
+            $File = $getProfileImageName['galleryImage'];
+            $key = "gallery/".$File;
         }
 		
         if(empty($File)){
@@ -51,16 +122,57 @@ trait CommonTrait	{
                 'Key'    => $key
             ]);
 
-            if ($userType == 'Profile') {
-                $expiry = "+10 minutes";
-            }
+            // if ($userType == 'Profile') {
+            //     $expiry = "+10 minutes";
+            // }
 
-            
+            $expiry = "+10 minutes";
             $request = $client->createPresignedRequest($command, $expiry);
             return $imageUrl =  (string) $request->getUri();
         }
         return $response;
 	}
+
+    function getImageUrlFromS3($File, $userType){
+
+        if($userType == 'Profile'){
+            $key = "profile/".$File;
+        }elseif ($userType == 'profileBannerImage') {
+            $key = "profile/".$File;
+        }elseif ($userType == 'Portfolio') {
+            $key = "pdf/".$File;
+        }elseif ($userType == 'Project') {
+            $key = "projects/".$File;
+        }elseif ($userType == 'Icon') {
+            $key = "icons/".$File;
+        }elseif ($userType == 'Gallery') {
+            $key = "gallery/".$File;
+        }
+
+        if(empty($File)){
+            return null;
+        }
+        $BucketName = 'profile-sharing-app';
+        // $key = "profile/".$image;
+
+        $s3 = \Storage::disk('s3');
+        if (!$s3->exists($key)) {
+            return null;
+            // $response['status'] = false;
+            // $response['message'] = 'Invalid image';
+        }else{
+            $client = $s3->getDriver()->getAdapter()->getClient();
+            $command = $client->getCommand('GetObject', [
+                'Bucket' => $BucketName,
+                'Key'    => $key
+            ]);
+
+            $expiry = "+10 minutes";
+            $request = $client->createPresignedRequest($command, $expiry);
+            return $imageUrl =  (string) $request->getUri();
+        }
+        return $response;
+    }
 
     function updateProfileStatus(Request $request, $profile_id){
         $profile = Profile::find($profile_id);
@@ -178,6 +290,18 @@ trait CommonTrait	{
         }
     }
 
+    function getPortFolioTitle($portfolio_id){
+        if(!empty(($portfolio_id))){
+            $Portfolio = Portfolio::find($portfolio_id);
+            if(!empty($Portfolio)){
+                $Portfolio = $Portfolio->toArray();
+                return $Portfolio['profile_title'];
+            }
+        }else{
+            return false;
+        }
+    }
+
     function validateProfiles($portfolios){
         if(!empty($portfolios)){
             $getPortFolioIds = explode(',', $portfolios);
@@ -212,11 +336,16 @@ trait CommonTrait	{
     }
 
     function getProfileIdByPortfolio($portfolio_id){
-        $Profile = Portfolio::select('profile_id')->find($portfolio_id);
+        $Profile = Portfolio::find($portfolio_id);
         if(!empty($Profile)){
             $Profile = $Profile->toArray();
+            if(!empty($Profile)){
+                return $Profile['profile_id'];
+            }else{
+                return false;
+            }
         }
-        return $Profile['profile_id'];
+        
     }
 
     function getResourceName($profile_id){

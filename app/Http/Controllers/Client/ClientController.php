@@ -61,7 +61,18 @@ class ClientController extends Controller
             $getShare = Share::where('queryString','=', $queryString)
                                 ->where('status', 1)
                                 ->first();
+                                // echo "<pre>";print_r($getShare);die;
             if(!empty($getShare)){
+
+                $getShareValidityDate = $getShare->validity;
+                
+                if(Carbon::now() > $getShareValidityDate){
+                    // die('here');
+                    $response['status'] = false;
+                    $response['message'] = "Url Expired.";
+                    return $response;
+                }
+
                 if($user = User::where('email', '=', $userRequest->clientEmail)->first()){
                     $response['status'] =  true;
                     
